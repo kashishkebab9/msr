@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+from typing import final
 import numpy as np
 import matplotlib.pyplot as plt
 import bresenham as bh
@@ -16,7 +17,7 @@ def init_gridmap(size, res):
 
 def world2map(pose, gridmap, map_res):
     origin = np.array(gridmap.shape)/2
-    new_pose = np.zeros(1,2)
+    new_pose = np.zeros(pose.shape)
     new_pose[0] = np.round(pose[0]/map_res) + origin[0];
     new_pose[1] = np.round(pose[1]/map_res) + origin[1];
     return new_pose.astype(int)
@@ -81,18 +82,35 @@ def inv_sensor_model(cell, endpoint, prob_occ, prob_free):
 
 
 def grid_mapping_with_known_poses(ranges_raw, poses_raw, occ_gridmap, map_res, prob_occ, prob_free, prior):
-   print(len(ranges_raw))
-   print(len(poses_raw))
-   for time_step in range(len(poses_raw)):
-       current_position = poses2cells(poses_raw[time_step], occ_gridmap, map_res)
-       detected_cells = ranges2cells(ranges_raw[time_step], pose_cell, occ_gridmap, map_res)
-       print(ranges_cell)
+  for time_idx in range(len(poses_raw)):
+      current_position = poses2cells(poses_raw[time_idx], occ_gridmap, map_res)
+      detected_cells = ranges2cells(ranges_raw[time_idx], current_position, occ_gridmap, map_res)
+      final_sensor_model = np.array([]).reshape(0,3)
+      for detected in range(detected_cells.shape[1]):
+          detected_cell = [1,1]
+          detected_cell[0] = detected_cells[0][detected]
+          detected_cell[1] = detected_cells[1][detected]
+          #print("Detected Cell: ", detected_cell[0], ", " , detected_cell[1])
+          sensor_model = inv_sensor_model(current_position, detected_cell, prob_occ, prob_free) 
+          final_sensor_model = np.concatenate((final_sensor_model, sensor_model), axis=0)
+      final_sensor_model = np.unique(final_sensor_model, axis=0) 
 
-       for row in occ_gridmap:
-           for cell in row:
+      for cell_to_update in final_sensor_model:
+          print(cell_to_update)
+          #occ_gridmap[int(cell_to_update[0]), int(cell_to_update[1])] += cell_to_update[2]
+      plot_gridmap(occ_gridmap)    
+
+
+           
+
+
+
+    
+
+    #   for row in occ_gridmap:
+    #       for cell in row:
                #if cell is in perceptual field:
                
                
-               print(cell)
 
 
