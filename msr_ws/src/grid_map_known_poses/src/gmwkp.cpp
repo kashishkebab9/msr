@@ -25,18 +25,18 @@ void gm_known_pose::pcl_callback(const sensor_msgs::PointCloud::ConstPtr& msg) {
 
   ros::Duration quarter_sec(0.25);
 
-  std::string * map_odom_check_err = new std::string();
-  bool map_odom_check = this->tfBuffer.canTransform(this->odom_frame, this->map_frame, time, quarter_sec, map_odom_check_err);
+  std::string * map_base_check_err = new std::string();
+  bool map_base_check = this->tfBuffer.canTransform(this->base_link_frame, this->map_frame, time, quarter_sec, map_base_check_err);
 
-  if (map_odom_check) {
+  if (map_base_check) {
 
-    tf2::Stamped<tf2::Transform> t_odom_map;
-    tf2::fromMsg(this->tfBuffer.lookupTransform(this->odom_frame, this->map_frame, time), t_odom_map);
+    tf2::Stamped<tf2::Transform> t_base_map;
+    tf2::fromMsg(this->tfBuffer.lookupTransform(this->base_link_frame, this->map_frame, time), t_base_map);
 
     std::vector<tf2::Vector3> tf_points;
     for (const auto& point: msg->points) {
       tf2::Vector3 pt(point.x, point.y, 1);
-      tf2::Vector3 tf_point = t_odom_map * pt;
+      tf2::Vector3 tf_point = t_base_map * pt;
       tf_points.push_back(tf_point);
     }
     
@@ -66,7 +66,7 @@ void gm_known_pose::pcl_callback(const sensor_msgs::PointCloud::ConstPtr& msg) {
     this->tf_pcl_viz.publish(transformed_points);
   }else {
     ROS_WARN("Can't find tf!");
-    std::cout << *map_odom_check_err << std::endl;
+    std::cout << *map_base_check_err << std::endl;
   }
 
 

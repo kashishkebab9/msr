@@ -20,7 +20,7 @@ class gm_known_pose {
   public:
     gm_known_pose() : 
       map_frame("scarab41/map"),
-      odom_frame("scarab41/odom")
+      base_link_frame("scarab41/base_link")
   {
       pose_sub = nh.subscribe("/scarab41/pose", 1, &gm_known_pose::pose_callback, this);
       scan_sub = nh.subscribe("/pointcloud", 1, &gm_known_pose::pcl_callback, this);
@@ -51,7 +51,7 @@ class gm_known_pose {
 
     tf2_ros::Buffer tfBuffer;
     std::string map_frame;
-    std::string odom_frame;
+    std::string base_link_frame;
 
 
 
