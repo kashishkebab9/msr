@@ -15,21 +15,23 @@ void gm_known_pose::pcl_callback(const sensor_msgs::PointCloud::ConstPtr& msg) {
   // Might be easier to use our scan_to_pcl node 
   // And then convert to grid_map since we know the robot pose and scan data
   // These are points relative to the laser frame, so we need to transform them into the world frame first
-  tf2_ros::Buffer tfBuffer_new;
-  tf2_ros::TransformListener listener(tfBuffer_new);
+  tf2_ros::TransformListener listener(this->tfBuffer);
   
   grid_map::Index robot_index_ = this->robot_index;
   std::vector<grid_map::Index> pcl_indices;
 
-  ros::Time time(0);
+  ros::Time time = ros::Time::now();
+  std::cout << "Time: " << time << std::endl;
+
+  ros::Duration quarter_sec(0.25);
 
   std::string * map_odom_check_err = new std::string();
-  bool map_odom_check = tfBuffer_new.canTransform(this->map_frame, this->odom_frame, time, map_odom_check_err);
+  bool map_odom_check = this->tfBuffer.canTransform(this->odom_frame, this->map_frame, time, quarter_sec, map_odom_check_err);
 
   if (map_odom_check) {
 
     tf2::Stamped<tf2::Transform> t_odom_map;
-    tf2::fromMsg(tfBuffer_new.lookupTransform(this->odom_frame, this->map_frame, time), t_odom_map);
+    tf2::fromMsg(this->tfBuffer.lookupTransform(this->odom_frame, this->map_frame, time), t_odom_map);
 
     std::vector<tf2::Vector3> tf_points;
     for (const auto& point: msg->points) {
@@ -66,10 +68,6 @@ void gm_known_pose::pcl_callback(const sensor_msgs::PointCloud::ConstPtr& msg) {
     ROS_WARN("Can't find tf!");
     std::cout << *map_odom_check_err << std::endl;
   }
-
-
-
-
 
 
 }
