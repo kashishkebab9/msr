@@ -23,7 +23,7 @@ void gm_known_pose::pcl_callback(const sensor_msgs::PointCloud::ConstPtr& msg) {
   ros::Time time = ros::Time::now();
   std::cout << "Time: " << time << std::endl;
 
-  ros::Duration quarter_sec(0.25);
+  ros::Duration quarter_sec(0.20);
 
   std::string * map_base_check_err = new std::string();
   bool map_base_check = this->tfBuffer.canTransform(this->base_link_frame, this->map_frame, time, quarter_sec, map_base_check_err);
@@ -36,7 +36,7 @@ void gm_known_pose::pcl_callback(const sensor_msgs::PointCloud::ConstPtr& msg) {
     std::vector<tf2::Vector3> tf_points;
     for (const auto& point: msg->points) {
       tf2::Vector3 pt(point.x, point.y, 1);
-      tf2::Vector3 tf_point = t_base_map * pt;
+      tf2::Vector3 tf_point = t_base_map.inverse() * pt;
       tf_points.push_back(tf_point);
     }
     
@@ -64,6 +64,7 @@ void gm_known_pose::pcl_callback(const sensor_msgs::PointCloud::ConstPtr& msg) {
     }
 
     this->tf_pcl_viz.publish(transformed_points);
+
   }else {
     ROS_WARN("Can't find tf!");
     std::cout << *map_base_check_err << std::endl;
