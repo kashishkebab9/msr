@@ -3,5 +3,6 @@
 
   <node name="scan_to_pcl" pkg="grid_map_known_poses" type="scan_pcl" output="screen"/>
   <node name="grid_mapping" pkg="grid_map_known_poses" type="gmwkp" output="screen"/>
+   <node type="rviz" name="rviz" pkg="rviz" args="-d $(find grid_map_known_poses)/viz/gmwkp.rviz" />
 
 </launch>

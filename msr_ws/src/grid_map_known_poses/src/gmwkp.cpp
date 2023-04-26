@@ -1,13 +1,20 @@
 #include "gmwkp.h"
 #include <exception>
 
+//ASSUMPTION: Delay in tf of pointcloud due to rosbag delay that's implemented
+
 void gm_known_pose::pose_callback(const geometry_msgs::PoseStamped::ConstPtr& msg) {
 
   grid_map::Position robot_position;
   robot_position.x() = msg->pose.position.x;
   robot_position.y() = msg->pose.position.y;
+  std::cout << "Robot Position: " << robot_position.matrix() << std::endl;
 
-  this->gm.getIndex(robot_position, this->robot_index);
+  bool check = this->gm.getIndex(robot_position, this->robot_index);
+  std::cout << "Robot Index: " << this->robot_index.matrix() << std::endl;
+  if (!check) {
+    ROS_WARN("Robot is out of map!");
+  }
 }
 
 void gm_known_pose::pcl_callback(const sensor_msgs::PointCloud::ConstPtr& msg) {
@@ -23,26 +30,28 @@ void gm_known_pose::pcl_callback(const sensor_msgs::PointCloud::ConstPtr& msg) {
   ros::Time time = ros::Time::now();
   std::cout << "Time: " << time << std::endl;
 
-  ros::Duration quarter_sec(0.20);
+  ros::Duration quarter_sec(0.25);
 
-  std::string * map_base_check_err = new std::string();
-  bool map_base_check = this->tfBuffer.canTransform(this->base_link_frame, this->map_frame, time, quarter_sec, map_base_check_err);
+  std::string * map_odom_check_err = new std::string();
+  std::string * odom_base_check_err = new std::string();
+  bool map_odom_check = this->tfBuffer.canTransform(this->odom_frame, this->map_frame, time, quarter_sec, map_odom_check_err);
+  bool odom_base_check = this->tfBuffer.canTransform(this->base_link_frame, this->map_frame, time, quarter_sec, odom_base_check_err);
 
-  if (map_base_check) {
+  if (map_odom_check && odom_base_check) {
 
-    tf2::Stamped<tf2::Transform> t_base_map;
-    tf2::fromMsg(this->tfBuffer.lookupTransform(this->base_link_frame, this->map_frame, time), t_base_map);
+    tf2::Stamped<tf2::Transform> t_odom_map;
+    tf2::fromMsg(this->tfBuffer.lookupTransform(this->odom_frame, this->base_link_frame, time), t_odom_map);
 
     std::vector<tf2::Vector3> tf_points;
     for (const auto& point: msg->points) {
       tf2::Vector3 pt(point.x, point.y, 1);
-      tf2::Vector3 tf_point = t_base_map.inverse() * pt;
+      tf2::Vector3 tf_point = t_odom_map * pt;
       tf_points.push_back(tf_point);
     }
     
     visualization_msgs::Marker transformed_points;
     transformed_points.action = visualization_msgs::Marker::DELETEALL;
-    transformed_points.header.frame_id = "scarab41/map";
+    transformed_points.header.frame_id = "scarab41/odom";
     transformed_points.ns = "transformed_pcl";
     transformed_points.action = visualization_msgs::Marker::ADD;
     transformed_points.pose.orientation.w = 1.0;
@@ -65,9 +74,39 @@ void gm_known_pose::pcl_callback(const sensor_msgs::PointCloud::ConstPtr& msg) {
 
     this->tf_pcl_viz.publish(transformed_points);
 
+    //We want to convert each of these transformed positions into indices for the bresenham algorithm
+    std::vector<grid_map::Index> pts_as_indices;
+    for (auto x: tf_points){
+      grid_map::Position pt_position;
+      grid_map::Index pt_index;
+      pt_position.x() = x.x();
+      pt_position.y() = x.y();
+      std::cout << "x: " << x.x() << ", " << x.y() <<std::endl;
+      std::cout << "pt: " << pt_position.x() << ", " << pt_position.y() <<std::endl;
+
+      this->gm.getIndex(pt_position, pt_index);
+      std::cout << "pt_index: " << pt_index.x() << ", " << pt_index.y() << std::endl;
+      pts_as_indices.push_back(pt_index);
+    }
+
+    //We can just use GridMap's LineIterator instead of implementing Bresenham's Algorithm
+    grid_map::Matrix& data = this->gm["occ_grid_map"];
+    for (grid_map::Index pt : pts_as_indices){
+      std::cout << "Start pt: " << robot_index_.matrix() << std::endl;
+      for (grid_map::LineIterator iterator(this->gm, robot_index_, pt);
+          !iterator.isPastEnd(); ++iterator) {
+        // *iterator is the index
+        std::cout << (*iterator).matrix() << std::endl;
+        std::cout << std::endl;
+      }
+      std::cout << std::endl;
+
+    }
+
   }else {
     ROS_WARN("Can't find tf!");
-    std::cout << *map_base_check_err << std::endl;
+    std::cout << *map_odom_check_err << std::endl;
+    std::cout << *odom_base_check_err << std::endl;
   }
 
 
@@ -77,10 +116,6 @@ void gm_known_pose::inv_sensor_model(grid_map::Index src, grid_map::Index target
 
 }
 
-std::vector<grid_map::Index> gm_known_pose::bresenham(grid_map::Index src, grid_map::Index target){
-
-
-}
 
 //-------------------------------------------------------//
 int main(int argc, char **argv) {

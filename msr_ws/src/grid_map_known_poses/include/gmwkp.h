@@ -20,16 +20,20 @@ class gm_known_pose {
   public:
     gm_known_pose() : 
       map_frame("scarab41/map"),
-      base_link_frame("scarab41/base_link")
+      odom_frame("scarab41/odom"),
+      base_link_frame("scarab41/laser")
   {
       pose_sub = nh.subscribe("/scarab41/pose", 1, &gm_known_pose::pose_callback, this);
       scan_sub = nh.subscribe("/pointcloud", 1, &gm_known_pose::pcl_callback, this);
       tf_pcl_viz = nh.advertise<visualization_msgs::Marker>("tf_pcl", 1);
 
+      grid_map::Length length;
+      length << 100, 100;
+      this->gm.setGeometry(length, .05);
       this->gm.add("occ_grid_map", 0.5);
+      
+      std::cout << "Grid Map size: " << this->gm.getSize()(0) << ", " << this->gm.getSize()(1) << std::endl;
 
-      //listener allows buffer to consume and store all transforms living in /tf
-      tf2_ros::TransformListener listener(this->tfBuffer);
 
     }
 
@@ -44,13 +48,13 @@ class gm_known_pose {
     void pose_callback(const geometry_msgs::PoseStamped::ConstPtr& msg);
     void pcl_callback(const sensor_msgs::PointCloud::ConstPtr& msg);
     void inv_sensor_model(grid_map::Index src, grid_map::Index target);
-    std::vector<grid_map::Index> bresenham(grid_map::Index src, grid_map::Index target);
 
     grid_map::Index robot_index;
     grid_map::GridMap gm;
 
     tf2_ros::Buffer tfBuffer;
     std::string map_frame;
+    std::string odom_frame;
     std::string base_link_frame;
 
 
