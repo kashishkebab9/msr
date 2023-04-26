@@ -21,7 +21,9 @@ class gm_known_pose {
     gm_known_pose() : 
       map_frame("scarab41/map"),
       odom_frame("scarab41/odom"),
-      base_link_frame("scarab41/laser")
+      base_link_frame("scarab41/laser"),
+      p_occ(.7),
+      p_free(.4)
   {
       pose_sub = nh.subscribe("/scarab41/pose", 1, &gm_known_pose::pose_callback, this);
       scan_sub = nh.subscribe("/pointcloud", 1, &gm_known_pose::pcl_callback, this);
@@ -33,8 +35,6 @@ class gm_known_pose {
       this->gm.add("occ_grid_map", 0.5);
       
       std::cout << "Grid Map size: " << this->gm.getSize()(0) << ", " << this->gm.getSize()(1) << std::endl;
-
-
     }
 
   private:
@@ -44,10 +44,11 @@ class gm_known_pose {
     ros::Subscriber scan_sub;
     ros::Publisher tf_pcl_viz;
 
-
     void pose_callback(const geometry_msgs::PoseStamped::ConstPtr& msg);
     void pcl_callback(const sensor_msgs::PointCloud::ConstPtr& msg);
-    void inv_sensor_model(grid_map::Index src, grid_map::Index target);
+    std::vector<std::pair<grid_map::Index, float>> inv_sensor_model(grid_map::Index src, grid_map::Index target);
+    double p_2_lo(double prob);
+    double lo_2_p(double log_odds);
 
     grid_map::Index robot_index;
     grid_map::GridMap gm;
@@ -56,11 +57,7 @@ class gm_known_pose {
     std::string map_frame;
     std::string odom_frame;
     std::string base_link_frame;
-
-
-
-
-
-
+    float p_occ;
+    float p_free;
 };
 

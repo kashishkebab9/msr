@@ -1,5 +1,6 @@
 #include "gmwkp.h"
 #include <exception>
+#include <iterator>
 
 //ASSUMPTION: Delay in tf of pointcloud due to rosbag delay that's implemented
 
@@ -8,20 +9,17 @@ void gm_known_pose::pose_callback(const geometry_msgs::PoseStamped::ConstPtr& ms
   grid_map::Position robot_position;
   robot_position.x() = msg->pose.position.x;
   robot_position.y() = msg->pose.position.y;
-  std::cout << "Robot Position: " << robot_position.matrix() << std::endl;
 
   bool check = this->gm.getIndex(robot_position, this->robot_index);
-  std::cout << "Robot Index: " << this->robot_index.matrix() << std::endl;
   if (!check) {
     ROS_WARN("Robot is out of map!");
   }
 }
 
 void gm_known_pose::pcl_callback(const sensor_msgs::PointCloud::ConstPtr& msg) {
-  // Need to convert the pointcloud data to grid_map data
-  // Might be easier to use our scan_to_pcl node 
-  // And then convert to grid_map since we know the robot pose and scan data
-  // These are points relative to the laser frame, so we need to transform them into the world frame first
+  // Need to convert the pointcloud data to grid_map data -[x]
+  // Might be easier to use our scan_to_pcl node -[x]
+  // These are points relative to the laser frame, so we need to transform them into the world frame first-[x]
   tf2_ros::TransformListener listener(this->tfBuffer);
   
   grid_map::Index robot_index_ = this->robot_index;
@@ -81,27 +79,18 @@ void gm_known_pose::pcl_callback(const sensor_msgs::PointCloud::ConstPtr& msg) {
       grid_map::Index pt_index;
       pt_position.x() = x.x();
       pt_position.y() = x.y();
-      std::cout << "x: " << x.x() << ", " << x.y() <<std::endl;
-      std::cout << "pt: " << pt_position.x() << ", " << pt_position.y() <<std::endl;
 
       this->gm.getIndex(pt_position, pt_index);
-      std::cout << "pt_index: " << pt_index.x() << ", " << pt_index.y() << std::endl;
       pts_as_indices.push_back(pt_index);
     }
 
-    //We can just use GridMap's LineIterator instead of implementing Bresenham's Algorithm
-    grid_map::Matrix& data = this->gm["occ_grid_map"];
+    std::vector<std::pair<grid_map::Index, float>> pts_to_process;
+    std::cout << "Size before: " << pts_to_process.size() << std::endl;
     for (grid_map::Index pt : pts_as_indices){
-      std::cout << "Start pt: " << robot_index_.matrix() << std::endl;
-      for (grid_map::LineIterator iterator(this->gm, robot_index_, pt);
-          !iterator.isPastEnd(); ++iterator) {
-        // *iterator is the index
-        std::cout << (*iterator).matrix() << std::endl;
-        std::cout << std::endl;
-      }
-      std::cout << std::endl;
-
+      std::vector<std::pair<grid_map::Index, float>> line = this->inv_sensor_model(robot_index_, pt);
+      std::copy(line.begin(), line.end(), std::back_inserter(pts_to_process));
     }
+    std::cout << "Size After: " << pts_to_process.size() << std::endl;
 
   }else {
     ROS_WARN("Can't find tf!");
@@ -109,10 +98,24 @@ void gm_known_pose::pcl_callback(const sensor_msgs::PointCloud::ConstPtr& msg) {
     std::cout << *odom_base_check_err << std::endl;
   }
 
-
 }
 
-void gm_known_pose::inv_sensor_model(grid_map::Index src, grid_map::Index target){
+std::vector<std::pair<grid_map::Index, float>> gm_known_pose::inv_sensor_model(grid_map::Index src, grid_map::Index target){
+
+  std::vector<std::pair<grid_map::Index, float>> output;
+  for (grid_map::LineIterator iterator(this->gm, src, target); !iterator.isPastEnd(); ++iterator) {
+    std::pair<grid_map::Index, float> point_prob_pair;
+    if(target.isApprox(*iterator)) {
+      (*iterator, this->p_free);
+      output.push_back(point_prob_pair);
+    } else {
+      std::pair<grid_map::Index, float> point_prob_pair(*iterator, this->p_occ);
+      output.push_back(point_prob_pair);
+    }
+
+  }
+  return output;
+
 
 }
 
