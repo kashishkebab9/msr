@@ -42,3 +42,10 @@ target_link_libraries(scan_pcl ${catkin_LIBRARIES})
 add_executable(gmwkp src/gmwkp.cpp)
 target_link_libraries(gmwkp ${catkin_LIBRARIES})
 
+install(TARGETS
+  gmwkp
+  ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+  LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+  RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+)
+

@@ -162,7 +162,7 @@ Visualization Manager:
       Draw Behind: false
       Enabled: false
       Name: Map
-      Topic: /scarab41/map
+      Topic: /map_by_kash
       Unreliable: false
       Use Timestamp: false
       Value: false

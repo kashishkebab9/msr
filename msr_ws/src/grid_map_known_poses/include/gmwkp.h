@@ -16,6 +16,10 @@
 
 #include <grid_map_msgs/GridMap.h>
 #include <grid_map_ros/grid_map_ros.hpp>
+#include <opencv2/opencv.hpp>
+#include "opencv2/core.hpp"
+#include "opencv2/imgcodecs.hpp"
+#include <grid_map_cv/GridMapCvConverter.hpp>
 
 class gm_known_pose {
   public:
