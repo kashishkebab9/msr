@@ -37,13 +37,13 @@ void gm_known_pose::pcl_callback(const sensor_msgs::PointCloud::ConstPtr& msg) {
 
   if (map_odom_check && odom_base_check) {
 
-    tf2::Stamped<tf2::Transform> t_odom_map;
-    tf2::fromMsg(this->tfBuffer.lookupTransform(this->odom_frame, this->base_link_frame, time), t_odom_map);
+    tf2::Stamped<tf2::Transform> t_odom_base;
+    tf2::fromMsg(this->tfBuffer.lookupTransform(this->odom_frame, this->base_link_frame, time), t_odom_base);
 
     std::vector<tf2::Vector3> tf_points;
     for (const auto& point: msg->points) {
       tf2::Vector3 pt(point.x, point.y, 1);
-      tf2::Vector3 tf_point = t_odom_map * pt;
+      tf2::Vector3 tf_point = t_odom_base* pt;
       tf_points.push_back(tf_point);
     }
     
@@ -84,13 +84,32 @@ void gm_known_pose::pcl_callback(const sensor_msgs::PointCloud::ConstPtr& msg) {
       pts_as_indices.push_back(pt_index);
     }
 
+    ros::Time time_before_ism = ros::Time::now();
     std::vector<std::pair<grid_map::Index, float>> pts_to_process;
-    std::cout << "Size before: " << pts_to_process.size() << std::endl;
     for (grid_map::Index pt : pts_as_indices){
       std::vector<std::pair<grid_map::Index, float>> line = this->inv_sensor_model(robot_index_, pt);
       std::copy(line.begin(), line.end(), std::back_inserter(pts_to_process));
     }
-    std::cout << "Size After: " << pts_to_process.size() << std::endl;
+
+    ros::Time time_before_update = ros::Time::now();
+    for (std::pair<grid_map::Index, float> point : pts_to_process) {
+      if(this->gm.isValid(point.first)) {
+        this->gm.at("occ_grid_map", point.first) = this->gm.at("occ_grid_map", point.first) 
+                                                    + p_2_lo(point.second) - p_2_lo(this->prior);
+      }
+    }
+    
+    ros::Time time_before_convert = ros::Time::now();
+
+    //This takes the longest time:
+    nav_msgs::OccupancyGrid occ_grid;
+    grid_map::GridMapRosConverter::toOccupancyGrid(this->gm, "occ_grid_map", 0, 1, occ_grid);
+    ros::Time time_after_convert = ros::Time::now();
+    this->occ_grid_pub.publish(occ_grid);
+
+   // std::cout << "Time for ISM: " << time_before_update - time_before_ism << std::endl;
+   // std::cout << "Time for Update: " << time_before_convert - time_before_update << std::endl;
+   // std::cout << "Time for Conversion: " << time_after_convert - time_before_convert << std::endl;
 
   }else {
     ROS_WARN("Can't find tf!");
@@ -106,21 +125,28 @@ std::vector<std::pair<grid_map::Index, float>> gm_known_pose::inv_sensor_model(g
   for (grid_map::LineIterator iterator(this->gm, src, target); !iterator.isPastEnd(); ++iterator) {
     std::pair<grid_map::Index, float> point_prob_pair;
     if(target.isApprox(*iterator)) {
-      (*iterator, this->p_free);
+      (*iterator, this->p_occ);
       output.push_back(point_prob_pair);
     } else {
-      std::pair<grid_map::Index, float> point_prob_pair(*iterator, this->p_occ);
+      std::pair<grid_map::Index, float> point_prob_pair(*iterator, this->p_free);
       output.push_back(point_prob_pair);
     }
-
   }
   return output;
-
-
 }
 
+double gm_known_pose::p_2_lo(double prob) {
+  double log_odds = std::log(prob/(1-prob));
+  return log_odds;
+}
+
+double gm_known_pose::lo_2_p(double log_odds){
+  double prob = 1 - (1/(1 + exp(log_odds)));
+  return prob;
+}
 
 //-------------------------------------------------------//
+
 int main(int argc, char **argv) {
   ros::init(argc, argv, "grid_mapping_with_known_poses");
   gm_known_pose solver;
