@@ -26,8 +26,6 @@ void gm_known_pose::pcl_callback(const sensor_msgs::PointCloud::ConstPtr& msg) {
   std::vector<grid_map::Index> pcl_indices;
 
   ros::Time time = ros::Time::now();
-  std::cout << "Time: " << time << std::endl;
-
   ros::Duration quarter_sec(0.25);
 
   std::string * map_odom_check_err = new std::string();
@@ -93,23 +91,17 @@ void gm_known_pose::pcl_callback(const sensor_msgs::PointCloud::ConstPtr& msg) {
 
     ros::Time time_before_update = ros::Time::now();
     for (std::pair<grid_map::Index, float> point : pts_to_process) {
-      if(this->gm.isValid(point.first)) {
+      if(point.first.x() <= 2000 || point.first.y() <= 2000) {
         std::cout << "Point: " << point.first << std::endl << "Value: " <<this->gm.at("occ_grid_map", point.first)<<std::endl; 
         this->gm.at("occ_grid_map", point.first) = this->gm.at("occ_grid_map", point.first) + p_2_lo(point.second) - p_2_lo(this->prior);
       }
     }
     
-    ros::Time time_before_convert = ros::Time::now();
-    cv::Mat image;
-    grid_map::GridMapCvConverter::toImage<unsigned char, 1>(this->gm, "occ_grid_map", CV_8UC1, 0, 100, image);
-    cv::imwrite("~/output.png", image);
-
-
-    //This takes the longest time:
-   // nav_msgs::OccupancyGrid occ_grid;
-   // grid_map::GridMapRosConverter::toOccupancyGrid(this->gm, "occ_grid_map", 0, 1, occ_grid);
-   // ros::Time time_after_convert = ros::Time::now();
-   // this->occ_grid_pub.publish(occ_grid);
+    nav_msgs::OccupancyGrid occ_grid;
+    grid_map::GridMapRosConverter::toOccupancyGrid(this->gm, "occ_grid_map", 0, 1, occ_grid);
+    ros::Time time_after_convert = ros::Time::now();
+    occ_grid.header.frame_id = this->map_frame;
+    this->occ_grid_pub.publish(occ_grid);
 
    // std::cout << "Time for ISM: " << time_before_update - time_before_ism << std::endl;
    // std::cout << "Time for Update: " << time_before_convert - time_before_update << std::endl;

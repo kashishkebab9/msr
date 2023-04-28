@@ -27,9 +27,9 @@ class gm_known_pose {
       map_frame("scarab41/map"),
       odom_frame("scarab41/odom"),
       base_link_frame("scarab41/laser"),
-      p_occ(.7),
+      p_occ(.9),
       prior(.5),
-      p_free(.4)
+      p_free(.6)
   {
       pose_sub = nh.subscribe("/scarab41/pose", 1, &gm_known_pose::pose_callback, this);
       scan_sub = nh.subscribe("/pointcloud", 1, &gm_known_pose::pcl_callback, this);
